@@ -1,12 +1,15 @@
 package local
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 	restclient "k8s.io/client-go/rest"
@@ -132,18 +135,47 @@ func getAppPodNameAndContainers(namespace, labelVal string, clientset kubernetes
 
 func getFirstRunningPod(clientset kubernetes.Interface, selector labels.Selector, namespace string) (*v1.Pod, error) {
 	options := metav1.ListOptions{LabelSelector: selector.String()}
+
 	pods, err := clientset.CoreV1().Pods(namespace).List(options)
 	if err != nil {
 		return nil, err
 	}
+
 	if len(pods.Items) < 1 {
-		return nil, fmt.Errorf("could not find ready pod")
+		//TODO: make err more descriptive
+		return nil, errors.New("Application Pods for not found in Kubernetes")
 	}
+
 	for _, p := range pods.Items {
 		if v1.IsPodReady(&p) {
+			fmt.Println("pod is ready")
 			return &p, nil
 		}
 	}
 
-	return nil, fmt.Errorf("could not find a ready pod")
+	watcher, err := clientset.CoreV1().Pods(namespace).Watch(options)
+	if err != nil {
+		return nil, err
+	}
+	conditions := []watch.ConditionFunc{
+		func(event watch.Event) (bool, error) {
+			if event.Type == watch.Added || event.Type == watch.Modified {
+
+				// TODO: check if the event object is a pod
+				return v1.IsPodReady(event.Object), nil
+			}
+
+			return false, nil
+		},
+		func(event watch.Event) (bool, error) {
+			return event.Type == watch.Error, nil
+		},
+	}
+
+	podReadyEvent, err := watch.Until(5*time.Second, watcher, conditions...)
+	if err != nil {
+		return nil, fmt.Errorf("Problem finding ready application pod: %v", err)
+	}
+
+	return podReadyEvent.Object, nil
 }
