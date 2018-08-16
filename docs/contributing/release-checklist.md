@@ -32,7 +32,7 @@ set for convenience. For major/minor releases, use the following:
 
 ```
 export RELEASE_NAME=vX.Y.0
-export RELEASE_CANDIDATE_NAME="$RELEASE_NAME-rc1"
+export RELEASE_CANDIDATE_NAME="$RELEASE_NAME-rc.1"
 export RELEASE_BRANCH_NAME=release-X.Y
 ```
 
@@ -98,7 +98,7 @@ index 4077fa4..b366797 100644
         // Increment minor number for bug fixes and performance enhancements.
         // Increment patch number for critical fixes to existing releases.
 -       Release = "canary"
-+       Release = "v0.2.0-rc1"
++       Release = "v0.2.0-rc.1"
 
         // BuildMetadata is extra build time data
         BuildMetadata = ""
